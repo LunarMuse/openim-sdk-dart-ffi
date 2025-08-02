@@ -21,11 +21,11 @@ jobs:
             os_name: ubuntu
           - os: macos-latest
             arch: amd64
-            build: buildIOS
+            build: buildMacOS
             os_name: macos
           - os: macos-latest
             arch: arm64
-            build: buildIOS
+            build: buildMacOS
             os_name: macos
           - os: windows-latest
             arch: amd64
@@ -64,11 +64,16 @@ jobs:
           7z x mingw32.7z -oC:/mingw32
 
       - name: Setup Android Env
-        uses: nttld/setup-ndk@v1
-        id: setup-ndk
+        if: matrix.build == 'buildAndroid'
+        uses: android-actions/setup-ndk@v1
         with:
-          ndk-version: r21e
-          add-to-path: true
+          ndk-version: '25.1.8937393'
+
+      - name: Build with NDK
+        if: matrix.build == 'buildAndroid'
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "Using NDK at: $ANDROID_NDK_HOME"
 
       - name: Setup and build on Windows ${{ matrix.arch }}
         if: runner.os == 'Windows'
@@ -90,7 +95,7 @@ jobs:
 
           # Create assets directory with proper naming
           $tag_version = "${{ github.ref_name }}"
-          $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
+          $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-${{ matrix.build }}-$tag_version-assets"
           New-Item -ItemType Directory -Force -Path $archive_name
 
           # Copy built files to assets directory
@@ -98,14 +103,14 @@ jobs:
             Copy-Item -Path "shared/windows/*" -Destination $archive_name -Recurse -ErrorAction SilentlyContinue
           }
 
-      - name: Setup and build on ${{ matrix.os }} ${{ matrix.arch }}
+      - name: Setup and build on ${{ matrix.os }} ${{ matrix.arch }} ${{ matrix.build }}
         if: runner.os != 'Windows'
         run: |
           sudo bash ./bootstrap_install_mage.sh
           export GOARCH=${{ matrix.arch }}
 
           # Create shared directory structure if it doesn't exist
-          mkdir -p shared/ios shared/linux shared/windows shared/android
+          mkdir -p shared/ios shared/linux shared/windows shared/android shared/macos
 
           # Additional setup for iOS ARM64 builds
           if [[ "${{ matrix.build }}" == "buildIOS" && "${{ matrix.arch }}" == "arm64" ]]; then
@@ -114,16 +119,16 @@ jobs:
             echo "Building iOS library for ARM64..."
           fi
           
-          if [[ "${{ matrix.build }}" == "buildAndroid" ]]; then
-            export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
-          fi
+#          if [[ "${{ matrix.build }}" == "buildAndroid" ]]; then
+#            export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
+#          fi
 
           # Run the build
           sudo -E mage ${{ matrix.build }}
 
           # Create assets directory with proper naming
           tag_version="${{ github.ref_name }}"
-          archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
+          archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-${{ matrix.build }}-$tag_version-assets"
           mkdir -p "$archive_name"
 
           # Copy built files to assets directory
@@ -133,13 +138,15 @@ jobs:
             cp -r shared/linux/* "$archive_name/" 2>/dev/null || echo "No Linux files to copy"
           elif [[ "${{ matrix.build }}" == "buildWindows" ]]; then
             cp -r shared/windows/* "$archive_name/" 2>/dev/null || echo "No Windows files to copy"
+          elif [[ "${{ matrix.build }}" == "buildAndroid" ]]; then
+            cp -r shared/android/* "$archive_name/" 2>/dev/null || echo "No Android files to copy"
           fi
 
       - name: Create archive (Windows)
         if: runner.os == 'Windows'
         run: |
           $tag_version = "${{ github.ref_name }}"
-          $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
+          $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-${{ matrix.build }}-$tag_version-assets"
 
           if (Test-Path $archive_name) {
             $fileCount = (Get-ChildItem -Path $archive_name -File -Recurse).Count
@@ -160,7 +167,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           tag_version="${{ github.ref_name }}"
-          archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
+          archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-${{ matrix.build }}-$tag_version-assets"
 
           if [ -d "$archive_name" ] && [ "$(find $archive_name -type f | wc -l)" -gt 0 ]; then
             zip -r $archive_name.zip $archive_name/
@@ -174,7 +181,7 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ github.ref_name }}-assets.zip
+          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ matrix.build }}-${{ github.ref_name }}-assets.zip
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
