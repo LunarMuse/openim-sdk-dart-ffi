@@ -143,7 +143,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           $tag_version = "${{ github.ref_name }}"
-          $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
+          $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-${{ matrix.build }}-$tag_version-assets"
           
           if (Test-Path $archive_name) {
           $fileCount = (Get-ChildItem -Path $archive_name -File -Recurse).Count
@@ -164,7 +164,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           tag_version="${{ github.ref_name }}"
-          archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
+          archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-${{ matrix.build }}-$tag_version-assets"
           
           if [ -d "$archive_name" ] && [ "$(find $archive_name -type f | wc -l)" -gt 0 ]; then
             zip -r $archive_name.zip $archive_name/
@@ -206,4 +206,3 @@ jobs:
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
