@@ -38,7 +38,6 @@ func Build() {
 	}
 }
 
-// buildAndroid builds the Android library for the specified architecture.
 func buildAndroid(aOutPath, arch, apiLevel string) error {
 	fmt.Printf("Building for %s...\n", arch)
 
@@ -95,7 +94,7 @@ func BuildAndroid() error {
 	return nil
 }
 
-// Build compiles the project for MacOS.
+// BuildMacOS compiles the project for MacOS.
 func BuildMacOS() error {
 	fmt.Println("Building for MacOS...")
 	outPath += "macos"
@@ -124,7 +123,6 @@ func BuildMacOS() error {
 	return nil
 }
 
-// 获取 Xcode SDK 路径
 func getIOSSDKPath(sdk string) (string, error) {
 	cmd := exec.Command("xcrun", "--sdk", sdk, "--show-sdk-path")
 	output, err := cmd.CombinedOutput()
@@ -134,7 +132,6 @@ func getIOSSDKPath(sdk string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-// 获取架构名称 (Go arch 到 Apple arch 的映射)
 func getIOSArchName(goArch string) string {
 	switch goArch {
 	case "arm64":
@@ -148,7 +145,6 @@ func getIOSArchName(goArch string) string {
 	}
 }
 
-// 编译特定架构的 iOS 库
 func buildIOSArch(arch, sdkPath, sdkName, minOS, output string) error {
 	fmt.Printf("Building iOS %s library for %s...\n", arch, sdkName)
 
@@ -179,7 +175,6 @@ func buildIOSArch(arch, sdkPath, sdkName, minOS, output string) error {
 	return nil
 }
 
-// 创建通用库 (合并多个架构)
 func createIOSUniversalLibrary(deviceLib, simulatorLib, output string) error {
 	fmt.Println("Creating universal library...")
 
@@ -204,7 +199,7 @@ func createIOSUniversalLibrary(deviceLib, simulatorLib, output string) error {
 	return nil
 }
 
-// Build compiles the project for iOS.
+// BuildIOS compiles the project for iOS.
 func BuildIOS() error {
 	fmt.Println("Building for iOS...")
 	outPath += "ios"
@@ -221,21 +216,24 @@ func BuildIOS() error {
 	}
 
 	// 编译真机版本 (arm64)
-	if err := buildIOSArch("arm64", sdkPath, "iphoneos", "13.0", outPath+"/device.a"); err != nil {
+	iphoneosName := soName + "_arm64.a"
+	if err := buildIOSArch("arm64", sdkPath, "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
 		return err
 	}
 
 	// 编译模拟器版本 (x86_64)
-	if err := buildIOSArch("amd64", simSdkPath, "iphonesimulator", "13.0", outPath+"/simulator.a"); err != nil {
+	iphonesimulatorName := soName + "_x86_64.a"
+	if err := buildIOSArch("amd64", simSdkPath, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
 		return err
 	}
 
 	// 合并为通用库
-	if err := createIOSUniversalLibrary(outPath+"/device.a", outPath+"/simulator.a", outPath+"/universal.a"); err != nil {
+	iosName := soName + ".a"
+	if err := createIOSUniversalLibrary(outPath+"/"+iphoneosName, outPath+"/"+iphonesimulatorName, outPath+"/"+iosName); err != nil {
 		return err
 	}
 
-	fmt.Println("iOS universal library built successfully at", outPath+"/universal.a")
+	fmt.Println("iOS universal library built successfully at", outPath+"/"+iosName)
 	return nil
 }
 

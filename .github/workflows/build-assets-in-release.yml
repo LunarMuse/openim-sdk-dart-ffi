@@ -43,6 +43,10 @@ jobs:
             arch: amd64
             build: buildAndroid
             os_name: android
+          - os: macos-latest
+            arch: arm64
+            build: buildIOS
+            os_name: ios
 
     steps:
       - name: Checkout code
