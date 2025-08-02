@@ -38,27 +38,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create Tag
-        if: runner.os != 'Windows'
-        run: |
-          TAG="release-$(date +%Y%m%d)-run-${{ github.run_id }}"
-          git tag $TAG
-          git push origin $TAG
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Tag Windows
-        if: runner.os != 'Windows'
-        run: |
-          $date = Get-Date -Format "yyyyMMdd"
-          $env:TAG = "release-$date-run-${{ github.run_id }}"
-          echo "TAG=$env:TAG" | Out-File -FilePath $env:GITHUB_ENV -Append
-          
-          git tag -a $env:TAG -m "Automated release $env:TAG"
-          git push origin $env:TAG
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup Go environment
         uses: actions/setup-go@v5
         with:
@@ -97,7 +76,7 @@ jobs:
           mage ${{ matrix.build }}
 
           # Create assets directory with proper naming
-          $tag_version = "${{ env.TAG }}"
+          $tag_version = "${{ github.ref }}"
           $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
           New-Item -ItemType Directory -Force -Path $archive_name
 
@@ -126,7 +105,7 @@ jobs:
           sudo -E mage ${{ matrix.build }}
 
           # Create assets directory with proper naming
-          tag_version="${{ env.TAG }}"
+          tag_version="${{ github.ref }}"
           archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
           mkdir -p "$archive_name"
 
@@ -142,7 +121,7 @@ jobs:
       - name: Create archive (Windows)
         if: runner.os == 'Windows'
         run: |
-          $tag_version = "${{ env.TAG }}"
+          $tag_version = "${{ github.ref }}"
           $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
 
           if (Test-Path $archive_name) {
@@ -163,7 +142,7 @@ jobs:
       - name: Create archive (Unix)
         if: runner.os != 'Windows'
         run: |
-          tag_version="${{ env.TAG }}"
+          tag_version="${{ github.ref }}"
           archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
 
           if [ -d "$archive_name" ] && [ "$(find $archive_name -type f | wc -l)" -gt 0 ]; then
@@ -178,7 +157,7 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ env.TAG }}-assets.zip
+          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ github.ref }}-assets.zip
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -189,7 +168,7 @@ jobs:
     steps:
       - name: Download release assets
         run: |
-          tag_version="${{ env.TAG }}"
+          tag_version="${{ github.ref }}"
           repo="${{ github.repository }}"
 
           declare -A asset_mapping
@@ -256,7 +235,7 @@ jobs:
 
       - name: Create combined archive
         run: |
-          tag_version="${{ env.TAG }}"
+          tag_version="${{ github.ref }}"
           combined_name="all-platforms-$tag_version-assets"
 
           mkdir -p "$combined_name/assets"
@@ -321,7 +300,7 @@ jobs:
       - name: Upload combined assets to release
         uses: softprops/action-gh-release@v2
         with:
-          files: all-platforms-${{ env.TAG }}-assets.zip
+          files: all-platforms-${{ github.ref }}-assets.zip
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
