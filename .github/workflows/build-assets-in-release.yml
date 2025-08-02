@@ -35,6 +35,14 @@ jobs:
             os_name: windows
 
     steps:
+      - name: Create Tag
+        run: |
+          TAG="release-$(date +%Y%m%d%H%M%S)"
+          git tag $TAG
+          git push origin $TAG
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -157,7 +165,7 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ github.ref_name }}-assets.zip
+          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ env.TAG }}-assets.zip
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -300,7 +308,7 @@ jobs:
       - name: Upload combined assets to release
         uses: softprops/action-gh-release@v2
         with:
-          files: all-platforms-${{ github.ref_name }}-assets.zip
+          files: all-platforms-${{ env.TAG }}-assets.zip
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
