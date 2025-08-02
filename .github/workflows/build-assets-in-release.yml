@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    env:
+      TAG_VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
+      PROJECT_NAME: ${{ github.event.repository.name }}
+      NDK_VERSION: "20.1.5948944" # NDK r20b
     strategy:
       matrix:
         include:
