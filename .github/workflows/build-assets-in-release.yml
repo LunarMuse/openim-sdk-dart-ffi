@@ -129,6 +129,13 @@ jobs:
           export GOARCH=${{ matrix.arch }}
           mkdir -p shared/ios shared/linux shared/windows shared/android shared/macos
 
+          # Additional setup for iOS ARM64 builds
+          if [[ "${{ matrix.build }}" == "buildMacOS" && "${{ matrix.arch }}" == "arm64" ]]; then
+            # Ensure Xcode command line tools are available
+            xcode-select --install 2>/dev/null || true
+            echo "Building MacOS library for ARM64..."
+          fi
+
           sudo -E mage ${{ matrix.build }}
 
           tag_version="${{ github.ref_name }}"
