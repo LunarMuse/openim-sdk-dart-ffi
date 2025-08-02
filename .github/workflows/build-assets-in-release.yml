@@ -149,6 +149,8 @@ jobs:
             cp -r shared/windows/* "$archive_name/" 2>/dev/null || echo "No Windows files to copy"
           elif [[ "${{ matrix.build }}" == "buildAndroid" ]]; then
             cp -r shared/android/* "$archive_name/" 2>/dev/null || echo "No Android files to copy"
+          elif [[ "${{ matrix.build }}" == "buildMacOS" ]]; then
+            cp -r shared/macos/* "$archive_name/" 2>/dev/null || echo "No MacOS files to copy"
           fi
 
       - name: Create archive (Windows)
