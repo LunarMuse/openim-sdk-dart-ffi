@@ -108,10 +108,10 @@ jobs:
         run: |
           sudo bash ./bootstrap_install_mage.sh
           export GOARCH=${{ matrix.arch }}
-
+          
           # Create shared directory structure if it doesn't exist
           mkdir -p shared/ios shared/linux shared/windows shared/android shared/macos
-
+    
           # Additional setup for iOS ARM64 builds
           if [[ "${{ matrix.build }}" == "buildIOS" && "${{ matrix.arch }}" == "arm64" ]]; then
             # Ensure Xcode command line tools are available
@@ -119,9 +119,9 @@ jobs:
             echo "Building iOS library for ARM64..."
           fi
           
-#          if [[ "${{ matrix.build }}" == "buildAndroid" ]]; then
-#            export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
-#          fi
+          #if [[ "${{ matrix.build }}" == "buildAndroid" ]]; then
+          #  export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
+          #fi
 
           # Run the build
           sudo -E mage ${{ matrix.build }}
