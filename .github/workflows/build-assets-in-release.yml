@@ -103,7 +103,7 @@ jobs:
             $env:CXX="g++ -m32"
           }
 
-          New-Item -ItemType Directory -Force -Path "shared/ios", "shared/linux", "shared/windows", "shared/android"
+          New-Item -ItemType Directory -Force -Path "shared/ios", "shared/linux", "shared/windows", "shared/android", "shared/macos"
           mage ${{ matrix.build }}
 
           $tag_version = "${{ github.ref_name }}"
