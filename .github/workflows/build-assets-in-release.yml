@@ -40,7 +40,7 @@ jobs:
 
       - name: Create Tag
         run: |
-          TAG="release-$(date +%Y%m%d%H%M%S)"
+          TAG="release-$(date +%Y%m%d)-run-${{ github.run_id }}"
           git tag $TAG
           git push origin $TAG
         env:
@@ -84,7 +84,7 @@ jobs:
           mage ${{ matrix.build }}
 
           # Create assets directory with proper naming
-          $tag_version = "${{ github.ref_name }}"
+          $tag_version = "${{ env.TAG }}"
           $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
           New-Item -ItemType Directory -Force -Path $archive_name
 
@@ -113,7 +113,7 @@ jobs:
           sudo -E mage ${{ matrix.build }}
 
           # Create assets directory with proper naming
-          tag_version="${{ github.ref_name }}"
+          tag_version="${{ env.TAG }}"
           archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
           mkdir -p "$archive_name"
 
@@ -129,7 +129,7 @@ jobs:
       - name: Create archive (Windows)
         if: runner.os == 'Windows'
         run: |
-          $tag_version = "${{ github.ref_name }}"
+          $tag_version = "${{ env.TAG }}"
           $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
 
           if (Test-Path $archive_name) {
@@ -150,7 +150,7 @@ jobs:
       - name: Create archive (Unix)
         if: runner.os != 'Windows'
         run: |
-          tag_version="${{ github.ref_name }}"
+          tag_version="${{ env.TAG }}"
           archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
 
           if [ -d "$archive_name" ] && [ "$(find $archive_name -type f | wc -l)" -gt 0 ]; then
@@ -176,7 +176,7 @@ jobs:
     steps:
       - name: Download release assets
         run: |
-          tag_version="${{ github.ref_name }}"
+          tag_version="${{ env.TAG }}"
           repo="${{ github.repository }}"
 
           declare -A asset_mapping
@@ -243,7 +243,7 @@ jobs:
 
       - name: Create combined archive
         run: |
-          tag_version="${{ github.ref_name }}"
+          tag_version="${{ env.TAG }}"
           combined_name="all-platforms-$tag_version-assets"
 
           mkdir -p "$combined_name/assets"
