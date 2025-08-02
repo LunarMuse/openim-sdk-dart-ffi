@@ -207,14 +207,9 @@ func BuildIOS() error {
 		return err
 	}
 
-	cc, err := getIOSCC("iphoneos")
-	if err != nil {
-		return err
-	}
-
 	//iphoneosName := soName + "_arm64.a"
 	iphoneosName := soName + ".a"
-	if err := buildIOSArch("arm64", sdkPath, cc, "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
+	if err := buildIOSArch("arm64", sdkPath, "clang", "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
 		return err
 	}
 
