@@ -132,40 +132,27 @@ func getIOSSDKPath(sdk string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func getIOSArchName(goArch string) string {
-	switch goArch {
-	case "arm64":
-		return "arm64"
-	case "amd64":
-		return "x86_64"
-	case "arm":
-		return "armv7"
-	default:
-		return goArch
-	}
-}
-
 func buildIOSArch(arch, sdkPath, sdkName, minOS, output string) error {
 	fmt.Printf("Building iOS %s library for %s...\n", arch, sdkName)
 
 	// 设置环境变量
-	env := os.Environ()
-	env = append(env, "GOOS=darwin")
-	env = append(env, "GOARCH="+arch)
-	env = append(env, "CGO_ENABLED=1")
-	env = append(env, "CC=clang")
+	os.Setenv("GOOS", "darwin")
+	os.Setenv("GOARCH", arch)
+	os.Setenv("CGO_ENABLED", "1")
+	os.Setenv("CC", "clang")
 
 	// 设置交叉编译标志
 	cflags := fmt.Sprintf("-arch %s -isysroot %s -m%s-version-min=%s",
-		getIOSArchName(arch), sdkPath, sdkName, minOS)
-	env = append(env, "CGO_CFLAGS="+cflags)
-	env = append(env, "CGO_LDFLAGS="+cflags)
+		arch, sdkPath, sdkName, minOS)
+	os.Setenv("CGO_CFLAGS", cflags)
+	os.Setenv("CGO_LDFLAGS", cflags)
 
 	// 执行构建命令
 	cmd := exec.Command("go", "build", "-buildmode=c-archive", "-o", output, ".")
-	cmd.Env = env
-	cmd.Stdout = os.Stdout
+	cmd.Dir = goSrc
+	cmd.Env = os.Environ()
 	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to build iOS %s: %w", arch, err)
@@ -223,7 +210,7 @@ func BuildIOS() error {
 
 	// 编译模拟器版本 (x86_64)
 	iphonesimulatorName := soName + "_x86_64.a"
-	if err := buildIOSArch("amd64", simSdkPath, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
+	if err := buildIOSArch("x86_64", simSdkPath, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
 		return err
 	}
 
