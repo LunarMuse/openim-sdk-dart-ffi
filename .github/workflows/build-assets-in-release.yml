@@ -63,11 +63,20 @@ jobs:
           curl -L -o mingw32.7z https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/8.1.0/threads-posix/dwarf/i686-8.1.0-release-posix-dwarf-rt_v6-rev0.7z/download
           7z x mingw32.7z -oC:/mingw32
 
+      - name: Set up JDK 17
+        if: matrix.build == 'buildAndroid'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Setup Android Env
         if: matrix.build == 'buildAndroid'
-        uses: actions/setup-android@v3
-        with:
-          ndk-version: '27.3.13750724'
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK
+        if: matrix.build == 'buildAndroid'
+        run: sdkmanager "ndk;22.0.7026061"
 
       - name: Build with NDK
         if: matrix.build == 'buildAndroid'
