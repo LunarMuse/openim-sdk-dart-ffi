@@ -212,7 +212,8 @@ func BuildIOS() error {
 		return err
 	}
 
-	iphoneosName := soName + "_arm64.a"
+	//iphoneosName := soName + "_arm64.a"
+	iphoneosName := soName + ".a"
 	if err := buildIOSArch("arm64", sdkPath, cc, "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
 		return err
 	}
@@ -235,12 +236,12 @@ func BuildIOS() error {
 	//}
 
 	// 合并为通用库
-	iosName := soName + ".a"
-	if err := createIOSUniversalLibrary(outPath+"/"+iphoneosName, outPath+"/"+iphonesimulatorName, outPath+"/"+iosName); err != nil {
-		return err
-	}
+	//iosName := soName + ".a"
+	//if err := createIOSUniversalLibrary(outPath+"/"+iphoneosName, outPath+"/"+iphonesimulatorName, outPath+"/"+iosName); err != nil {
+	//	return err
+	//}
 
-	fmt.Println("iOS universal library built successfully at", outPath+"/"+iosName)
+	fmt.Println("iOS universal library built successfully at", outPath+"/"+iphoneosName)
 	return nil
 }
 
