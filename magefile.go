@@ -201,12 +201,8 @@ func BuildIOS() error {
 	outPath += "ios"
 	//arch := os.Getenv("GOARCH")
 
-	// 获取 Xcode SDK 路径
+	// 编译真机版本 (arm64)
 	sdkPath, err := getIOSSDKPath("iphoneos")
-	if err != nil {
-		return err
-	}
-	simSdkPath, err := getIOSSDKPath("iphonesimulator")
 	if err != nil {
 		return err
 	}
@@ -215,18 +211,24 @@ func BuildIOS() error {
 	if err != nil {
 		return err
 	}
-	ccSimulator, err := getIOSCC("iphonesimulator")
-	if err != nil {
-		return err
-	}
 
-	// 编译真机版本 (arm64)
 	iphoneosName := soName + "_arm64.a"
 	if err := buildIOSArch("arm64", sdkPath, cc, "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
 		return err
 	}
 
-	//// 编译模拟器版本 (x86_64)
+	// 编译模拟器版本 (x86_64)
+	// 获取 Xcode SDK 路径
+	//simSdkPath, err := getIOSSDKPath("iphonesimulator")
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//ccSimulator, err := getIOSCC("iphonesimulator")
+	//if err != nil {
+	//	return err
+	//}
+
 	//iphonesimulatorName := soName + "_x86_64.a"
 	//if err := buildIOSArch("x86_64", simSdkPath, ccSimulator, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
 	//	return err
