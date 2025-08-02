@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 )
 
 var (
@@ -133,6 +134,20 @@ func getIOSSDKPath(sdk string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// 获取架构名称 (Go arch 到 Apple arch 的映射)
+func getIOSArchName(goArch string) string {
+	switch goArch {
+	case "arm64":
+		return "arm64"
+	case "amd64":
+		return "x86_64"
+	case "arm":
+		return "armv7"
+	default:
+		return goArch
+	}
+}
+
 // 编译特定架构的 iOS 库
 func buildIOSArch(arch, sdkPath, sdkName, minOS, output string) error {
 	fmt.Printf("Building iOS %s library for %s...\n", arch, sdkName)
@@ -146,7 +161,7 @@ func buildIOSArch(arch, sdkPath, sdkName, minOS, output string) error {
 
 	// 设置交叉编译标志
 	cflags := fmt.Sprintf("-arch %s -isysroot %s -m%s-version-min=%s",
-		getArchName(arch), sdkPath, sdkName, minOS)
+		getIOSArchName(arch), sdkPath, sdkName, minOS)
 	env = append(env, "CGO_CFLAGS="+cflags)
 	env = append(env, "CGO_LDFLAGS="+cflags)
 
@@ -164,22 +179,8 @@ func buildIOSArch(arch, sdkPath, sdkName, minOS, output string) error {
 	return nil
 }
 
-// 获取架构名称 (Go arch 到 Apple arch 的映射)
-func getArchName(goArch string) string {
-	switch goArch {
-	case "arm64":
-		return "arm64"
-	case "amd64":
-		return "x86_64"
-	case "arm":
-		return "armv7"
-	default:
-		return goArch
-	}
-}
-
 // 创建通用库 (合并多个架构)
-func createUniversalLibrary(deviceLib, simulatorLib, output string) error {
+func createIOSUniversalLibrary(deviceLib, simulatorLib, output string) error {
 	fmt.Println("Creating universal library...")
 
 	// 检查 lipo 工具是否可用
@@ -207,14 +208,14 @@ func createUniversalLibrary(deviceLib, simulatorLib, output string) error {
 func BuildIOS() error {
 	fmt.Println("Building for iOS...")
 	outPath += "ios"
-	arch := os.Getenv("GOARCH")
+	//arch := os.Getenv("GOARCH")
 
 	// 获取 Xcode SDK 路径
-	sdkPath, err := getSDKPath("iphoneos")
+	sdkPath, err := getIOSSDKPath("iphoneos")
 	if err != nil {
 		return err
 	}
-	simSdkPath, err := getSDKPath("iphonesimulator")
+	simSdkPath, err := getIOSSDKPath("iphonesimulator")
 	if err != nil {
 		return err
 	}
@@ -230,7 +231,7 @@ func BuildIOS() error {
 	}
 
 	// 合并为通用库
-	if err := createUniversalLibrary(outPath+"/device.a", outPath+"/simulator.a", outPath+"/universal.a"); err != nil {
+	if err := createIOSUniversalLibrary(outPath+"/device.a", outPath+"/simulator.a", outPath+"/universal.a"); err != nil {
 		return err
 	}
 
