@@ -38,7 +38,7 @@ jobs:
           - os: ubuntu-latest
             arch: amd64
             build: buildAndroid
-            os_name: ubuntu
+            os_name: android
 
     steps:
       - name: Checkout code
@@ -64,18 +64,18 @@ jobs:
           7z x mingw32.7z -oC:/mingw32
 
       - name: Set up JDK 17
-        if: runner.build == 'buildAndroid'
+        if: matrix.build == 'buildAndroid'
         uses: actions/setup-java@v4
         with:
           java-version: "17"
           distribution: "temurin"
 
       - name: Setup Android SDK
-        if: runner.build == 'buildAndroid'
+        if: matrix.build == 'buildAndroid'
         uses: android-actions/setup-android@v3
 
       - name: Install NDK r20b
-        if: runner.build == 'buildAndroid'
+        if: matrix.build == 'buildAndroid'
         run: |
           echo "Installing NDK r20b (version $NDK_VERSION)..."
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;$NDK_VERSION"
