@@ -226,11 +226,11 @@ func BuildIOS() error {
 		return err
 	}
 
-	// 编译模拟器版本 (arm64)
-	iphonesimulatorName := soName + "_x86_64.a"
-	if err := buildIOSArch("arm64", simSdkPath, ccSimulator, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
-		return err
-	}
+	//// 编译模拟器版本 (x86_64)
+	//iphonesimulatorName := soName + "_x86_64.a"
+	//if err := buildIOSArch("x86_64", simSdkPath, ccSimulator, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
+	//	return err
+	//}
 
 	// 合并为通用库
 	iosName := soName + ".a"
