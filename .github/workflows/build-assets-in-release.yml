@@ -1,7 +1,9 @@
 name: Build assets in release
 
 on:
-  push
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -76,7 +78,7 @@ jobs:
           mage ${{ matrix.build }}
 
           # Create assets directory with proper naming
-          $tag_version = "${{ github.ref }}"
+          $tag_version = "${{ github.ref_name }}"
           $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
           New-Item -ItemType Directory -Force -Path $archive_name
 
@@ -105,7 +107,7 @@ jobs:
           sudo -E mage ${{ matrix.build }}
 
           # Create assets directory with proper naming
-          tag_version="${{ github.ref }}"
+          tag_version="${{ github.ref_name }}"
           archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
           mkdir -p "$archive_name"
 
@@ -121,7 +123,7 @@ jobs:
       - name: Create archive (Windows)
         if: runner.os == 'Windows'
         run: |
-          $tag_version = "${{ github.ref }}"
+          $tag_version = "${{ github.ref_name }}"
           $archive_name = "${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
 
           if (Test-Path $archive_name) {
@@ -142,7 +144,7 @@ jobs:
       - name: Create archive (Unix)
         if: runner.os != 'Windows'
         run: |
-          tag_version="${{ github.ref }}"
+          tag_version="${{ github.ref_name }}"
           archive_name="${{ matrix.os_name }}-${{ matrix.arch }}-$tag_version-assets"
 
           if [ -d "$archive_name" ] && [ "$(find $archive_name -type f | wc -l)" -gt 0 ]; then
@@ -157,7 +159,7 @@ jobs:
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ github.ref }}-assets.zip
+          files: ${{ matrix.os_name }}-${{ matrix.arch }}-${{ github.ref_name }}-assets.zip
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -168,7 +170,7 @@ jobs:
     steps:
       - name: Download release assets
         run: |
-          tag_version="${{ github.ref }}"
+          tag_version="${{ github.ref_name }}"
           repo="${{ github.repository }}"
 
           declare -A asset_mapping
@@ -235,7 +237,7 @@ jobs:
 
       - name: Create combined archive
         run: |
-          tag_version="${{ github.ref }}"
+          tag_version="${{ github.ref_name }}"
           combined_name="all-platforms-$tag_version-assets"
 
           mkdir -p "$combined_name/assets"
@@ -300,7 +302,7 @@ jobs:
       - name: Upload combined assets to release
         uses: softprops/action-gh-release@v2
         with:
-          files: all-platforms-${{ github.ref }}-assets.zip
+          files: all-platforms-${{ github.ref_name }}-assets.zip
           draft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
