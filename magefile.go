@@ -132,14 +132,23 @@ func getIOSSDKPath(sdk string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func buildIOSArch(arch, sdkPath, sdkName, minOS, output string) error {
+func getIOSCC(sdk string) (string, error) {
+	cmd := exec.Command("xcrun", "--sdk", sdk, "-f clang")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get %s SDK path: %w\n%s", sdk, err, string(output))
+	}
+	return string(output), nil
+}
+
+func buildIOSArch(arch, sdkPath, cc, sdkName, minOS, output string) error {
 	fmt.Printf("Building iOS %s library for %s...\n", arch, sdkName)
 
 	// 设置环境变量
 	os.Setenv("GOOS", "darwin")
 	os.Setenv("GOARCH", arch)
 	os.Setenv("CGO_ENABLED", "1")
-	os.Setenv("CC", "clang")
+	os.Setenv("CC", cc)
 
 	// 设置交叉编译标志
 	cflags := fmt.Sprintf("-arch %s -isysroot %s -m%s-version-min=%s",
@@ -202,15 +211,24 @@ func BuildIOS() error {
 		return err
 	}
 
-	// 编译真机版本 (arm64)
-	iphoneosName := soName + "_arm64.a"
-	if err := buildIOSArch("arm64", sdkPath, "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
+	cc, err := getIOSCC("iphoneos")
+	if err != nil {
+		return err
+	}
+	ccSimulator, err := getIOSCC("iphonesimulator")
+	if err != nil {
 		return err
 	}
 
-	// 编译模拟器版本 (x86_64)
+	// 编译真机版本 (arm64)
+	iphoneosName := soName + "_arm64.a"
+	if err := buildIOSArch("arm64", sdkPath, cc, "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
+		return err
+	}
+
+	// 编译模拟器版本 (arm64)
 	iphonesimulatorName := soName + "_x86_64.a"
-	if err := buildIOSArch("x86_64", simSdkPath, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
+	if err := buildIOSArch("arm64", simSdkPath, ccSimulator, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
 		return err
 	}
 
