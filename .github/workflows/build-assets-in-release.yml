@@ -69,9 +69,6 @@ jobs:
         with:
           ndk-version: r21e
           add-to-path: true
-        run: ls -al
-        env:
-          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
 
       - name: Setup and build on Windows ${{ matrix.arch }}
         if: runner.os == 'Windows'
@@ -118,7 +115,7 @@ jobs:
           fi
           
           if [[ "${{ matrix.build }}" == "buildAndroid" ]]; then
-            export ANDROID_NDK_HOME=${{ matrix.arch }}
+            export ANDROID_NDK_HOME=${{ steps.setup-ndk.outputs.ndk-path }}
           fi
 
           # Run the build
