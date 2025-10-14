@@ -2,8 +2,6 @@ name: Build assets in release
 
 on:
   push:
-    tags:
-      - 'v*'
 
 jobs:
   build:
