@@ -45,10 +45,6 @@ jobs:
             arch: arm64
             build: buildIOS
             os_name: ios
-          - os: macos-latest
-            arch: x86_64
-            build: buildIOS
-            os_name: ios
 
     steps:
       - name: Checkout code
