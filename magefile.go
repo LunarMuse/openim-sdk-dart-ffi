@@ -7,58 +7,79 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
 
 var (
-	soName  = "libopenimsdk" //
-	outPath = "../shared/"
-	goSrc   = "go" //
+	soName  = "libopenimsdk"                     // 库名称
+	rootOutPath = "../shared/"                   // 根输出路径，避免+=覆盖
+	goSrc   = "go"                               // Go源码目录
+	minIOSVersion = "13.0"                       // 最低支持iOS版本
 )
 
 var Default = Build
 
 // BuildAll compiles the project for all platforms.
 func Build() {
-	if err := BuildAndroid(); err != nil {
-		fmt.Println("Error building for Android:", err)
+	platforms := []struct {
+		name string
+		fn   func() error
+	}{
+		{"Android", BuildAndroid},
+		{"iOS", BuildIOS},
+		{"Linux", BuildLinux},
+		{"Windows", BuildWindows},
+		{"MacOS", BuildMacOS},
 	}
-	if err := BuildIOS(); err != nil {
-		fmt.Println("Error building for iOS:", err)
-	}
-	if err := BuildLinux(); err != nil {
-		fmt.Println("Error building for Linux:", err)
-	}
-	if err := BuildWindows(); err != nil {
-		fmt.Println("Error building for Windows:", err)
-	}
-	if err := BuildMacOS(); err != nil {
-		fmt.Println("Error building for MacOS:", err)
+
+	for _, p := range platforms {
+		fmt.Printf("=== Building for %s ===\n", p.name)
+		if err := p.fn(); err != nil {
+			fmt.Printf("Error building for %s: %v\n", p.name, err)
+		} else {
+			fmt.Printf("Successfully built for %s\n", p.name)
+		}
 	}
 }
 
+// -------------------------- Android 编译逻辑（保留原有） --------------------------
 func buildAndroid(aOutPath, arch, apiLevel string) error {
-	fmt.Printf("Building for %s...\n", arch)
+	fmt.Printf("Building for Android %s...\n", arch)
 
 	ndkPath := os.Getenv("ANDROID_NDK_HOME")
-	osSuffix := ""
-	if runtime.GOOS == "windows" {
-		osSuffix = ".cmd" //
+	if ndkPath == "" {
+		return fmt.Errorf("ANDROID_NDK_HOME environment variable not set")
 	}
 
-	ccBasePath := ndkPath + "/toolchains/llvm/prebuilt/" + runtime.GOOS + "-x86_64/bin/"
+	osSuffix := ""
+	if runtime.GOOS == "windows" {
+		osSuffix = ".cmd"
+	}
+
+	ccBasePath := filepath.Join(ndkPath, "toolchains", "llvm", "prebuilt", runtime.GOOS+"-x86_64", "bin")
+	if _, err := os.Stat(ccBasePath); err != nil {
+		return fmt.Errorf("NDK toolchain path not found: %s", ccBasePath)
+	}
 
 	var cc string
 	switch arch {
 	case "arm":
-		cc = ccBasePath + "armv7a-linux-androideabi" + apiLevel + "-clang" + osSuffix
+		cc = filepath.Join(ccBasePath, "armv7a-linux-androideabi"+apiLevel+"-clang"+osSuffix)
 	case "arm64":
-		cc = ccBasePath + "aarch64-linux-android" + apiLevel + "-clang" + osSuffix
+		cc = filepath.Join(ccBasePath, "aarch64-linux-android"+apiLevel+"-clang"+osSuffix)
 	case "386":
-		cc = ccBasePath + "i686-linux-android" + apiLevel + "-clang" + osSuffix
+		cc = filepath.Join(ccBasePath, "i686-linux-android"+apiLevel+"-clang"+osSuffix)
 	case "amd64":
-		cc = ccBasePath + "x86_64-linux-android" + apiLevel + "-clang" + osSuffix
+		cc = filepath.Join(ccBasePath, "x86_64-linux-android"+apiLevel+"-clang"+osSuffix)
+	default:
+		return fmt.Errorf("unsupported Android arch: %s", arch)
+	}
+
+	// 构建输出目录
+	if err := os.MkdirAll(filepath.Join(aOutPath, arch), 0755); err != nil {
+		return err
 	}
 
 	env := []string{
@@ -67,7 +88,7 @@ func buildAndroid(aOutPath, arch, apiLevel string) error {
 		"GOARCH=" + arch,
 		"CC=" + cc,
 	}
-	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-trimpath", "-ldflags=-s -w", "-o", aOutPath+"/"+arch+"/"+soName+".so", ".")
+	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(aOutPath, arch, soName+".so"), ".")
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	cmd.Dir = goSrc
@@ -75,8 +96,8 @@ func buildAndroid(aOutPath, arch, apiLevel string) error {
 	return cmd.Run()
 }
 
-// BuildAndroid compiles the project for Android.
 func BuildAndroid() error {
+	androidOutPath := filepath.Join(rootOutPath, "android")
 	architectures := []struct {
 		Arch, API string
 	}{
@@ -87,42 +108,15 @@ func BuildAndroid() error {
 	}
 
 	for _, arch := range architectures {
-		if err := buildAndroid(outPath+"android", arch.Arch, arch.API); err != nil {
-			fmt.Printf("Failed to build for %s: %v\n", arch.Arch, err)
+		if err := buildAndroid(androidOutPath, arch.Arch, arch.API); err != nil {
+			fmt.Printf("Failed to build for Android %s: %v\n", arch.Arch, err)
 		}
 	}
 	return nil
 }
 
-// BuildMacOS compiles the project for MacOS.
-func BuildMacOS() error {
-	fmt.Println("Building for MacOS...")
-	outPath += "macos"
-	arch := os.Getenv("GOARCH")
-
-	if len(arch) == 0 {
-		arch = runtime.GOARCH
-	}
-
-	os.Setenv("GOOS", "darwin")
-	os.Setenv("GOARCH", arch)
-	os.Setenv("CGO_ENABLED", "1")
-	os.Setenv("CC", "clang")
-
-	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-o", outPath+"/"+soName+".dylib", ".")
-	cmd.Dir = goSrc
-	cmd.Env = os.Environ()
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Failed to build for MacOS: %v\n", err)
-		return err
-	}
-	fmt.Println("Build for MacOS completed successfully.")
-	return nil
-}
-
+// -------------------------- iOS 编译逻辑（核心修复） --------------------------
+// 获取iOS SDK路径
 func getIOSSDKPath(sdk string) (string, error) {
 	cmd := exec.Command("xcrun", "--sdk", sdk, "--show-sdk-path")
 	output, err := cmd.CombinedOutput()
@@ -132,190 +126,245 @@ func getIOSSDKPath(sdk string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// 获取iOS Clang编译器路径
 func getIOSCC(sdk string) (string, error) {
-	cmd := exec.Command("xcrun", "--sdk", sdk, "-f clang")
+	cmd := exec.Command("xcrun", "--sdk", sdk, "-f", "clang")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("failed to get %s SDK path: %w\n%s", sdk, err, string(output))
+		return "", fmt.Errorf("failed to get %s clang path: %w\n%s", sdk, err, string(output))
 	}
-	return string(output), nil
+	return strings.TrimSpace(string(output)), nil // 关键：Trim空格避免路径错误
 }
 
-func buildIOSArch(arch, sdkPath, cc, sdkName, minOS, output string) error {
-	fmt.Printf("Building iOS %s library for %s...\n", arch, sdkName)
+// 编译单个iOS架构的静态库
+func buildIOSArch(arch, sdk, minOS, output string) error {
+	// 获取SDK路径和编译器
+	sdkPath, err := getIOSSDKPath(sdk)
+	if err != nil {
+		return err
+	}
+	cc, err := getIOSCC(sdk)
+	if err != nil {
+		return err
+	}
 
-	// 设置环境变量
-	os.Setenv("GOOS", "darwin")
-	os.Setenv("GOARCH", arch)
-	os.Setenv("CGO_ENABLED", "1")
-	os.Setenv("CC", cc)
+	// 构建CGO编译标志
+	var cgoArch, sdkName string
+	switch sdk {
+	case "iphoneos":
+		sdkName = "iphoneos"
+		cgoArch = arch // 真机arm64
+	case "iphonesimulator":
+		sdkName = "iphonesimulator"
+		cgoArch = arch // 模拟器x86_64/arm64
+	default:
+		return fmt.Errorf("unsupported iOS SDK: %s", sdk)
+	}
 
-	// 设置交叉编译标志
+	// CGO编译参数：指定架构、SDK根目录、最低iOS版本
 	cflags := fmt.Sprintf("-arch %s -isysroot %s -m%s-version-min=%s",
-		arch, sdkPath, sdkName, minOS)
-	os.Setenv("CGO_CFLAGS", cflags)
-	os.Setenv("CGO_LDFLAGS", cflags)
+		cgoArch, sdkPath, sdkName, minOS)
 
-	// 执行构建命令
-	cmd := exec.Command("go", "build", "-buildmode=c-archive", "-o", output, ".")
+	// 构建环境变量（局部传递，不全局覆盖）
+	env := []string{
+		"CGO_ENABLED=1",
+		"GOOS=ios", // 关键：iOS的GOOS设置为ios（Go 1.16+支持）
+		"GOARCH=" + arch,
+		"CC=" + cc,
+		"CGO_CFLAGS=" + cflags,
+		"CGO_LDFLAGS=" + cflags,
+	}
+
+	fmt.Printf("Building iOS %s (%s) library...\n", arch, sdk)
+	cmd := exec.Command("go", "build", "-buildmode=c-archive", "-trimpath", "-ldflags=-s -w", "-o", output, ".")
 	cmd.Dir = goSrc
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), env...) // 合并系统环境变量
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to build iOS %s: %w", arch, err)
 	}
-
-	fmt.Printf("Build for iOS %s completed successfully\n", arch)
 	return nil
 }
 
-func createIOSUniversalLibrary(deviceLib, simulatorLib, output string) error {
-	fmt.Println("Creating universal library...")
-
-	// 检查 lipo 工具是否可用
+// 合并多个架构为通用胖库
+func createIOSUniversalLibrary(inputs []string, output string) error {
+	fmt.Println("Creating iOS universal library...")
 	if _, err := exec.LookPath("lipo"); err != nil {
-		return fmt.Errorf("lipo tool not found. Make sure Xcode is installed: %w", err)
+		return fmt.Errorf("lipo tool not found (install Xcode): %w", err)
 	}
 
-	cmd := exec.Command("lipo", "-create", deviceLib, simulatorLib, "-output", output)
+	// 构建lipo命令：-create 输入1 输入2 -output 输出
+	args := append([]string{"-create"}, inputs...)
+	args = append(args, "-output", output)
+	cmd := exec.Command("lipo", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create universal library: %w", err)
+		return fmt.Errorf("lipo failed: %w", err)
 	}
 
-	// 可选：删除中间文件
-	os.Remove(deviceLib)
-	os.Remove(simulatorLib)
-
-	fmt.Println("Universal library created successfully")
+	// 可选：删除临时架构库
+	for _, input := range inputs {
+		_ = os.Remove(input)
+		_ = os.Remove(input[:len(input)-2] + ".h") // 删除对应的头文件
+	}
 	return nil
 }
 
-// BuildIOS compiles the project for iOS.
 func BuildIOS() error {
-	fmt.Println("Building for iOS...")
-	outPath += "ios"
-	//arch := os.Getenv("GOARCH")
-
-	// 编译真机版本 (arm64)
-	sdkPath, err := getIOSSDKPath("iphoneos")
-	if err != nil {
+	iosOutPath := filepath.Join(rootOutPath, "ios")
+	if err := os.MkdirAll(iosOutPath, 0755); err != nil {
 		return err
 	}
 
-	//iphoneosName := soName + "_arm64.a"
-	iphoneosName := soName + ".a"
-	if err := buildIOSArch("arm64", sdkPath, "clang", "iphoneos", "13.0", outPath+"/"+iphoneosName); err != nil {
-		return err
+	// 定义需要编译的iOS架构
+	architectures := []struct {
+		Arch string // GOARCH
+		SDK  string // iphoneos/iphonesimulator
+	}{
+		{"arm64", "iphoneos"},          // 真机arm64
+		{"x86_64", "iphonesimulator"},  // Intel Mac模拟器
+		{"arm64", "iphonesimulator"},   // Apple Silicon Mac模拟器（可选，按需开启）
 	}
 
-	// 编译模拟器版本 (x86_64)
-	// 获取 Xcode SDK 路径
-	//simSdkPath, err := getIOSSDKPath("iphonesimulator")
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//ccSimulator, err := getIOSCC("iphonesimulator")
-	//if err != nil {
-	//	return err
-	//}
+	// 存储临时架构库路径
+	tempLibs := make([]string, 0, len(architectures))
+	for _, arch := range architectures {
+		// 临时输出路径：如 libopenimsdk_arm64_iphoneos.a
+		tempOutput := filepath.Join(iosOutPath, fmt.Sprintf("%s_%s_%s.a", soName, arch.Arch, arch.SDK))
+		if err := buildIOSArch(arch.Arch, arch.SDK, minIOSVersion, tempOutput); err != nil {
+			fmt.Printf("Failed to build iOS %s (%s): %v\n", arch.Arch, arch.SDK, err)
+			// 可选择继续编译其他架构或直接返回错误
+			// return err
+		} else {
+			tempLibs = append(tempLibs, tempOutput)
+		}
+	}
 
-	//iphonesimulatorName := soName + "_x86_64.a"
-	//if err := buildIOSArch("x86_64", simSdkPath, ccSimulator, "iphonesimulator", "13.0", outPath+"/"+iphonesimulatorName); err != nil {
-	//	return err
-	//}
+	// 合并为通用库（仅当有多个架构时）
+	if len(tempLibs) > 0 {
+		finalOutput := filepath.Join(iosOutPath, soName+".a")
+		if err := createIOSUniversalLibrary(tempLibs, finalOutput); err != nil {
+			return err
+		}
+		fmt.Printf("iOS universal library built at: %s\n", finalOutput)
+	} else {
+		return fmt.Errorf("no iOS architectures were built successfully")
+	}
 
-	// 合并为通用库
-	//iosName := soName + ".a"
-	//if err := createIOSUniversalLibrary(outPath+"/"+iphoneosName, outPath+"/"+iphonesimulatorName, outPath+"/"+iosName); err != nil {
-	//	return err
-	//}
-
-	fmt.Println("iOS universal library built successfully at", outPath+"/"+iphoneosName)
 	return nil
 }
 
-// BuildLinux compiles the project for Linux.
+// -------------------------- MacOS 编译逻辑（修复路径） --------------------------
+func BuildMacOS() error {
+	fmt.Println("Building for MacOS...")
+	macosOutPath := filepath.Join(rootOutPath, "macos")
+	if err := os.MkdirAll(macosOutPath, 0755); err != nil {
+		return err
+	}
+
+	arch := os.Getenv("GOARCH")
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
+
+	// 局部环境变量，不全局覆盖
+	env := []string{
+		"CGO_ENABLED=1",
+		"GOOS=darwin",
+		"GOARCH=" + arch,
+		"CC=clang",
+	}
+
+	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(macosOutPath, soName+".dylib"), ".")
+	cmd.Dir = goSrc
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to build MacOS: %w", err)
+	}
+	return nil
+}
+
+// -------------------------- Linux 编译逻辑（修复路径） --------------------------
 func BuildLinux() error {
 	fmt.Println("Building for Linux...")
-
-	outPath += "linux"
-	arch := os.Getenv("GOARCH")
-	cc := os.Getenv("CC")
-	cxx := os.Getenv("CXX")
-
-	if len(arch) == 0 {
-		arch = runtime.GOARCH
+	linuxOutPath := filepath.Join(rootOutPath, "linux")
+	if err := os.MkdirAll(linuxOutPath, 0755); err != nil {
+		return err
 	}
 
-	if len(cc) == 0 {
+	arch := os.Getenv("GOARCH")
+	if arch == "" {
+		arch = runtime.GOARCH
+	}
+	cc := os.Getenv("CC")
+	if cc == "" {
 		cc = "gcc"
 	}
 
-	if len(cxx) != 0 {
-		os.Setenv("CXX", cxx)
+	env := []string{
+		"CGO_ENABLED=1",
+		"GOOS=linux",
+		"GOARCH=" + arch,
+		"CC=" + cc,
+	}
+	if cxx := os.Getenv("CXX"); cxx != "" {
+		env = append(env, "CXX="+cxx)
 	}
 
-	os.Setenv("GOOS", "linux")
-	os.Setenv("GOARCH", arch)
-	os.Setenv("CGO_ENABLED", "1")
-	os.Setenv("CC", cc) //
-
-	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-trimpath", "-ldflags=-s -w", "-o", outPath+"/"+soName+".so", ".")
+	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(linuxOutPath, soName+".so"), ".")
 	cmd.Dir = goSrc
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), env...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Failed to build for Linux: %v\n", err)
-		return err
+		return fmt.Errorf("failed to build Linux: %w", err)
 	}
-	fmt.Println("Build for Linux completed successfully.")
 	return nil
 }
 
-// BuildWindows compiles the project for Windows.
+// -------------------------- Windows 编译逻辑（修复路径） --------------------------
 func BuildWindows() error {
 	fmt.Println("Building for Windows...")
+	windowsOutPath := filepath.Join(rootOutPath, "windows")
+	if err := os.MkdirAll(windowsOutPath, 0755); err != nil {
+		return err
+	}
 
-	outPath += "windows"
 	arch := os.Getenv("GOARCH")
-	cc := os.Getenv("CC")
-	cxx := os.Getenv("CXX")
-
-	if len(arch) == 0 {
+	if arch == "" {
 		arch = runtime.GOARCH
 	}
-
-	if len(cc) == 0 {
-		cc = "gcc"
+	cc := os.Getenv("CC")
+	if cc == "" {
+		cc = "gcc" // 需安装MinGW-w64
 	}
 
-	if len(cxx) != 0 {
-		os.Setenv("CXX", cxx)
+	env := []string{
+		"CGO_ENABLED=1",
+		"GOOS=windows",
+		"GOARCH=" + arch,
+		"CC=" + cc,
+	}
+	if cxx := os.Getenv("CXX"); cxx != "" {
+		env = append(env, "CXX="+cxx)
 	}
 
-	os.Setenv("GOOS", "windows")
-	os.Setenv("GOARCH", arch)
-	os.Setenv("CGO_ENABLED", "1")
-	os.Setenv("CC", cc)
-
-	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-trimpath", "-ldflags=-s -w", "-o", outPath+"/"+soName+".dll", ".")
+	cmd := exec.Command("go", "build", "-buildmode=c-shared", "-trimpath", "-ldflags=-s -w", "-o", filepath.Join(windowsOutPath, soName+".dll"), ".")
 	cmd.Dir = goSrc
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), env...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Failed to build for Windows: %v\n", err)
-		return err
+		return fmt.Errorf("failed to build Windows: %w", err)
 	}
-	fmt.Println("Build for Windows completed successfully.")
 	return nil
 }
