@@ -226,7 +226,6 @@ func BuildIOS() error {
 		SDK  string // iphoneos/iphonesimulator
 	}{
 		{"arm64", "iphoneos"},          // 真机arm64
-		{"x86_64", "iphonesimulator"},  // Intel Mac模拟器
 		{"arm64", "iphonesimulator"},   // Apple Silicon Mac模拟器（可选，按需开启）
 	}
 
